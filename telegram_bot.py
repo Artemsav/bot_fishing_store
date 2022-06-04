@@ -15,7 +15,7 @@ from storing_data import FishShopPersistence
 
 logger = logging.getLogger(__name__)
 
-START, ECHO, HANDLE_MENU, HANDLE_DESCRIPTION = range(4)
+START, HANDLE_MENU, HANDLE_DESCRIPTION = range(3)
 
 
 def start(products, update: Update, context: CallbackContext) -> None:
@@ -48,19 +48,37 @@ def handle_menu(elastickpath_access_token, update: Update, context: CallbackCont
     product_image_id = product_payload.get('data').get('relationships').get('main_image').get('data').get('id')
     path = get_image(product_image_id, elastickpath_access_token)
     product_describtion = f'{product_name}\n{product_price}\n\n{product_text}'
+    keyboard = [
+        [InlineKeyboardButton('Назад', callback_data='back')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     with open(path, 'rb') as file:
-        context.bot.send_photo(chat_id=update.effective_chat.id, photo=file, caption=product_describtion)
-    return START
+        context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=file,
+            caption=product_describtion,
+            reply_markup=reply_markup
+            )
+    return HANDLE_DESCRIPTION
 
 
-def handle_describtion(update: Update, context: CallbackContext) -> None:
-    pass
-
-
-def echo(update: Update, context: CallbackContext) -> None:
-    users_reply = update.message.text
-    update.message.reply_text(users_reply)
-    return ECHO
+def handle_describtion(products, update: Update, context: CallbackContext) -> None:
+    message_id = update.effective_message.message_id
+    chat_id = update.effective_message.chat_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    keyboard = []
+    for product in products.get('data'):
+        product_name = product.get('name')
+        product_id = product.get('id')
+        key = [InlineKeyboardButton(product_name, callback_data=product_id)]
+        keyboard.append(key)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.send_message(
+        chat_id=chat_id,
+        text='Please choose:',
+        reply_markup=reply_markup
+        )
+    return HANDLE_MENU
 
 
 def handle_error(update: Update, context: CallbackContext):
@@ -106,6 +124,7 @@ def main():
     dispatcher = updater.dispatcher
     partial_start = partial(start, products)
     partial_handle_menu = partial(handle_menu, elastickpath_access_token)
+    partial_handle_describtion = partial(handle_describtion, products)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
@@ -115,6 +134,9 @@ def main():
             HANDLE_MENU: [
                 CallbackQueryHandler(partial_handle_menu),
                 ],
+            HANDLE_DESCRIPTION: [
+                CallbackQueryHandler(partial_handle_describtion, pattern="^(back)$")
+            ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
         name="my_conversation",
