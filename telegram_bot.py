@@ -31,10 +31,10 @@ def start(products, update: Update, context: CallbackContext) -> None:
         'Hello! Please choose:',
         reply_markup=reply_markup
         )
-    return HANDLE_MENU
+    return HANDLE_DESCRIPTION
 
 
-def handle_menu(elastickpath_access_token, update: Update, context: CallbackContext) -> None:
+def handle_describtion(elastickpath_access_token, update: Update, context: CallbackContext) -> None:
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -59,10 +59,10 @@ def handle_menu(elastickpath_access_token, update: Update, context: CallbackCont
             caption=product_describtion,
             reply_markup=reply_markup
             )
-    return HANDLE_DESCRIPTION
+    return HANDLE_MENU
 
 
-def handle_describtion(products, update: Update, context: CallbackContext) -> None:
+def handle_menu(products, update: Update, context: CallbackContext) -> None:
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -78,7 +78,7 @@ def handle_describtion(products, update: Update, context: CallbackContext) -> No
         text='Please choose:',
         reply_markup=reply_markup
         )
-    return HANDLE_MENU
+    return HANDLE_DESCRIPTION
 
 
 def handle_error(update: Update, context: CallbackContext):
@@ -123,19 +123,19 @@ def main():
     updater = Updater(token, persistence=persistence)
     dispatcher = updater.dispatcher
     partial_start = partial(start, products)
-    partial_handle_menu = partial(handle_menu, elastickpath_access_token)
-    partial_handle_describtion = partial(handle_describtion, products)
+    partial_handle_menu = partial(handle_menu, products)
+    partial_handle_describtion = partial(handle_describtion, elastickpath_access_token)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
             START: [
                 MessageHandler(Filters.text, partial_start),
                 ],
-            HANDLE_MENU: [
-                CallbackQueryHandler(partial_handle_menu),
-                ],
             HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(partial_handle_describtion, pattern="^(back)$")
+                CallbackQueryHandler(partial_handle_describtion),
+                ],
+            HANDLE_MENU: [
+                CallbackQueryHandler(partial_handle_menu, pattern="^(back)$")
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
