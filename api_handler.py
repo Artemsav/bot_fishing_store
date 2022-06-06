@@ -81,6 +81,16 @@ def get_image(image_id: Str, access_token: Str):
     return named_path
 
 
+def remove_cart_item(card_id: Str, product_id: Str, access_token: Str):
+    url = f'https://api.moltin.com/v2/carts/{card_id}/items/{product_id}'
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.delete(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
 if __name__ == '__main__':
     load_dotenv()
     products = {

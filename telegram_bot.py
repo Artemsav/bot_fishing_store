@@ -9,13 +9,15 @@ from telegram.ext import (CallbackContext, CallbackQueryHandler,
                           CommandHandler, ConversationHandler, Filters,
                           MessageHandler, Updater)
 
-from api_handler import get_all_products, get_product, get_image, add_product_to_card
+from api_handler import (add_product_to_card, get_all_products, get_card,
+                         get_card_items, get_image, get_product,
+                         remove_cart_item)
 from logging_handler import TelegramLogsHandler
 from storing_data import FishShopPersistence
 
 logger = logging.getLogger(__name__)
 
-START, HANDLE_MENU, HANDLE_DESCRIPTION = range(3)
+START, HANDLE_MENU, HANDLE_DESCRIPTION, HANDLE_CART = range(4)
 
 
 def start(products, update: Update, context: CallbackContext) -> None:
@@ -43,7 +45,7 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
     if '|' in query.data:
         product_id, card = query.data.strip('|')
         _, quantity = card.split(':')
-        log = add_product_to_card(product_id, elastickpath_access_token, quantity)
+        log = add_product_to_card(chat_id, product_id, elastickpath_access_token, quantity)
         logger.info(f'Card respon api\n{log}')
         return HANDLE_MENU
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -96,6 +98,28 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
     return HANDLE_DESCRIPTION
 
 
+def handle_cart(elastickpath_access_token, update: Update, context: CallbackContext):
+    chat_id = update.effective_message.chat_id
+    cards = get_card(chat_id, elastickpath_access_token)
+    card_items = get_card_items(chat_id, elastickpath_access_token)
+    card_total_price = card_items.get('data').get('meta').get('display_price').get('with_tax').get('formatted')
+    products_list = []
+    for item in cards.get('data'):
+        item_name = item.get('name')
+        item_quantity = item.get('quantity')
+        item_price_per_item = item.get('meta').get('display_price').get('with_tax').get('unit').get('formatted')
+        item_total_price = item.get('meta').get('display_price').get('with_tax').get('value').get('formatted')
+        products_describtion = f'{item_name}\n{item_price_per_item} per kg\n{item_quantity}kg in cart for {item_total_price}\n\n'
+        products_list.append(products_describtion)
+    all_products = ''.join(product for product in products_list)
+    card_message = f'{all_products}Total:{card_total_price}'
+    context.bot.send_message(
+        chat_id=chat_id,
+        text=card_message,
+    )
+    return HANDLE_CART
+
+
 def handle_error(update: Update, context: CallbackContext):
     """Log Errors caused by Updates."""
     logger.warning(
@@ -140,6 +164,7 @@ def main():
     partial_start = partial(start, products)
     partial_handle_menu = partial(handle_menu, products)
     partial_handle_describtion = partial(handle_describtion, elastickpath_access_token)
+    partial_handle_cart = partial(handle_cart, elastickpath_access_token)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
@@ -152,6 +177,9 @@ def main():
             HANDLE_MENU: [
                 CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
                 CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$")
+            ],
+            HANDLE_CART: [
+                CallbackQueryHandler(partial_handle_cart)
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
