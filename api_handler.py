@@ -25,8 +25,8 @@ def get_product(product_id: Str, access_token: Str):
     return response.json()
 
 
-def add_product_to_card(product_id: Str, access_token: Str, quantity: int):
-    url = 'https://api.moltin.com/v2/carts/:reference/items'
+def add_product_to_card(card_id: Str, product_id: Str, access_token: Str, quantity: int):
+    url = f'https://api.moltin.com/v2/carts/{card_id}/items'
     headers = {
         'Authorization': f'Bearer {access_token}'
     }
@@ -38,6 +38,26 @@ def add_product_to_card(product_id: Str, access_token: Str, quantity: int):
         },
     }
     response = requests.post(url, headers=headers, json=json_data)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_card(card_id: Str, access_token: Str):
+    url = f'https://api.moltin.com/v2/carts/{card_id}'
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_card_items(card_id: Str, access_token: Str):
+    url = f'https://api.moltin.com/v2/carts/{card_id}/items'
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    response = requests.get(url, headers=headers)
     response.raise_for_status()
     return response.json()
 
@@ -70,12 +90,14 @@ if __name__ == '__main__':
     }
     elastickpath_access_token = os.getenv('ELASTICPATH_ACCESS_TOKEN')
     #print(get_all_products(elastickpath_access_token))
-    '''print(
+    #print(get_product('c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
+    print(
         add_product_to_card(
-            product_id=products.get('gutted-cod-headless-chilled'),
+            card_id=5338790508,
+            product_id=products.get('sea-trout-murmansk-chilled-4-5kg-inarctica'),
             access_token=elastickpath_access_token,
             quantity=1
             )
-        )'''
-    print(get_product('c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
-    print(get_image('db8c95cd-3ff6-4176-a360-88097be72882', elastickpath_access_token))
+        )
+    print(get_card('5338790508', elastickpath_access_token))
+    print(get_card_items('5338790508', elastickpath_access_token))

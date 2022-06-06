@@ -9,7 +9,7 @@ from telegram.ext import (CallbackContext, CallbackQueryHandler,
                           CommandHandler, ConversationHandler, Filters,
                           MessageHandler, Updater)
 
-from api_handler import get_all_products, get_product, get_image
+from api_handler import get_all_products, get_product, get_image, add_product_to_card
 from logging_handler import TelegramLogsHandler
 from storing_data import FishShopPersistence
 
@@ -25,7 +25,8 @@ def start(products, update: Update, context: CallbackContext) -> None:
         product_id = product.get('id')
         key = [InlineKeyboardButton(product_name, callback_data=product_id)]
         keyboard.append(key)
-
+    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='all_card')]
+    keyboard.append(card_keyboard)
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
         'Hello! Please choose:',
@@ -37,9 +38,15 @@ def start(products, update: Update, context: CallbackContext) -> None:
 def handle_describtion(elastickpath_access_token, update: Update, context: CallbackContext) -> None:
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
-    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     query = update.callback_query
     query.answer()
+    if '|' in query.data:
+        product_id, card = query.data.strip('|')
+        _, quantity = card.split(':')
+        log = add_product_to_card(product_id, elastickpath_access_token, quantity)
+        logger.info(f'Card respon api\n{log}')
+        return HANDLE_MENU
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     product_id = query.data
     product_payload = get_product(product_id, elastickpath_access_token)
     product_name = product_payload.get('data').get('name')
@@ -49,6 +56,12 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
     path = get_image(product_image_id, elastickpath_access_token)
     product_describtion = f'{product_name}\n{product_price}\n\n{product_text}'
     keyboard = [
+        [
+            InlineKeyboardButton('1 kg', callback_data=f'{product_id}|card:1'),
+            InlineKeyboardButton('2 kg', callback_data=f'{product_id}|card:2'),
+            InlineKeyboardButton('3 kg', callback_data=f'{product_id}|card:3')
+            ],
+        [InlineKeyboardButton('Корзина', callback_data='all_card')],
         [InlineKeyboardButton('Назад', callback_data='back')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -72,6 +85,8 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
         product_id = product.get('id')
         key = [InlineKeyboardButton(product_name, callback_data=product_id)]
         keyboard.append(key)
+    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='all_card')]
+    keyboard.append(card_keyboard)
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
         chat_id=chat_id,
@@ -135,7 +150,8 @@ def main():
                 CallbackQueryHandler(partial_handle_describtion),
                 ],
             HANDLE_MENU: [
-                CallbackQueryHandler(partial_handle_menu, pattern="^(back)$")
+                CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
+                CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$")
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
