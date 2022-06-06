@@ -43,14 +43,6 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
     query = update.callback_query
     query.answer()
     logger.info('user was there')
-    logger.info(query.data)
-    if '|' in query.data:
-        logger.info('user is here')
-        product_id, card = query.data.strip('|')
-        _, quantity = card.split(':')
-        add_product_to_card(chat_id, product_id, elastickpath_access_token, quantity)
-        logger.info(f'Succed added product to card')
-        return HANDLE_MENU
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     product_id = query.data
     product_payload = get_product(product_id, elastickpath_access_token)
@@ -77,6 +69,17 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
             caption=product_describtion,
             reply_markup=reply_markup
             )
+    return HANDLE_MENU
+
+
+def handle_product_button(elastickpath_access_token, update: Update, context: CallbackContext):
+    chat_id = update.effective_message.chat_id
+    query = update.callback_query
+    logger.info('user is here')
+    product_id, card = query.data.strip('|')
+    _, quantity = card.split(':')
+    add_product_to_card(chat_id, product_id, elastickpath_access_token, quantity)
+    logger.info(f'Succed added product to card {product_id} in quantity {quantity}')
     return HANDLE_MENU
 
 
@@ -171,6 +174,7 @@ def main():
     partial_handle_menu = partial(handle_menu, products)
     partial_handle_describtion = partial(handle_describtion, elastickpath_access_token)
     partial_handle_cart = partial(handle_cart, elastickpath_access_token)
+    partial_handle_product_button = partial(handle_product_button, elastickpath_access_token)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
@@ -178,12 +182,12 @@ def main():
                 MessageHandler(Filters.text, partial_start),
                 ],
             HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$"),
+                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card[1-3])$"),
                 CallbackQueryHandler(partial_handle_describtion),
                 ],
             HANDLE_MENU: [
                 CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
-                CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$"),
+                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card[1-3])$"),
                 CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$")
             ],
             HANDLE_CART: [
