@@ -178,8 +178,8 @@ def main():
                 MessageHandler(Filters.text, partial_start),
                 ],
             HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(partial_handle_describtion),
                 CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$"),
+                CallbackQueryHandler(partial_handle_describtion),
                 ],
             HANDLE_MENU: [
                 CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
