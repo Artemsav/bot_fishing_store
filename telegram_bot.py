@@ -27,7 +27,7 @@ def start(products, update: Update, context: CallbackContext) -> None:
         product_id = product.get('id')
         key = [InlineKeyboardButton(product_name, callback_data=product_id)]
         keyboard.append(key)
-    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='all_card')]
+    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='productcard')]
     keyboard.append(card_keyboard)
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
@@ -75,10 +75,10 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
 def handle_product_button(elastickpath_access_token, update: Update, context: CallbackContext):
     chat_id = update.effective_message.chat_id
     query = update.callback_query
-    logger.info('user is here')
-    product_id, card = query.data.strip('|')
+    product_id, card = query.data.split('|')
     _, quantity = card.split(':')
-    add_product_to_card(chat_id, product_id, elastickpath_access_token, quantity)
+    logger.info(f'vars\nchat_id:{chat_id}product_id:{product_id}quantity:{quantity}')
+    add_product_to_card(chat_id, product_id, elastickpath_access_token, int(quantity))
     logger.info(f'Succed added product to card {product_id} in quantity {quantity}')
     return HANDLE_MENU
 
@@ -93,7 +93,7 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
         product_id = product.get('id')
         key = [InlineKeyboardButton(product_name, callback_data=product_id)]
         keyboard.append(key)
-    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='all_card')]
+    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='productcard')]
     keyboard.append(card_keyboard)
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
@@ -107,25 +107,42 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
 def handle_cart(elastickpath_access_token, update: Update, context: CallbackContext):
     chat_id = update.effective_message.chat_id
     cards = get_card(chat_id, elastickpath_access_token)
-    logger.info(f'Handle card respon api\n{cards}')
     card_items = get_card_items(chat_id, elastickpath_access_token)
-    logger.info(f'Handle card respon api\n{card_items}')
-    card_total_price = card_items.get('data').get('meta').get('display_price').get('with_tax').get('formatted')
+    card_total_price = cards.get('data').get('meta').get('display_price').get('with_tax').get('formatted')
+    message_id = update.effective_message.message_id
+    chat_id = update.effective_message.chat_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     products_list = []
+    keyboard = []
     for item in card_items.get('data'):
         logger.info(f'Handle card respon api\n{item}')
+        item_id = item.get('product_id')
         item_name = item.get('name')
         item_quantity = item.get('quantity')
         item_price_per_item = item.get('meta').get('display_price').get('with_tax').get('unit').get('formatted')
         item_total_price = item.get('meta').get('display_price').get('with_tax').get('value').get('formatted')
         products_describtion = f'{item_name}\n{item_price_per_item} per kg\n{item_quantity}kg in cart for {item_total_price}\n\n'
         products_list.append(products_describtion)
+        key = [InlineKeyboardButton(f'Убрать из корзины {item_name}', callback_data=item_id)]
+        keyboard.append(key)
+    reply_markup = InlineKeyboardMarkup(keyboard)
     all_products = ''.join(product for product in products_list)
+    logger.info(f'handle_cart\n{all_products}')
     card_message = f'{all_products}Total:{card_total_price}'
+    logger.info(f'handle_cart\n{card_message}')
     context.bot.send_message(
         chat_id=chat_id,
         text=card_message,
+        reply_markup = reply_markup
     )
+    return HANDLE_CART
+
+
+def remove_card_item(elastickpath_access_token, update: Update, context: CallbackContext):
+    chat_id = update.effective_message.chat_id
+    query = update.callback_query
+    product_id = query.data
+    remove_cart_item(card_id=chat_id, product_id=product_id, access_token=elastickpath_access_token)
     return HANDLE_CART
 
 
@@ -175,6 +192,7 @@ def main():
     partial_handle_describtion = partial(handle_describtion, elastickpath_access_token)
     partial_handle_cart = partial(handle_cart, elastickpath_access_token)
     partial_handle_product_button = partial(handle_product_button, elastickpath_access_token)
+    partial_remove_card_item = partial(remove_card_item, elastickpath_access_token)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
@@ -182,16 +200,17 @@ def main():
                 MessageHandler(Filters.text, partial_start),
                 ],
             HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card[1-3])$"),
+                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card:[1-3])$"),
+                CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
                 CallbackQueryHandler(partial_handle_describtion),
                 ],
             HANDLE_MENU: [
                 CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
-                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card[1-3])$"),
+                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card:[1-3])$"),
                 CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$")
             ],
             HANDLE_CART: [
-                CallbackQueryHandler(partial_handle_cart)
+                CallbackQueryHandler(partial_remove_card_item)
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],

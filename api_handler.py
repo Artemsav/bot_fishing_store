@@ -103,11 +103,13 @@ if __name__ == '__main__':
     #print(get_product('c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
     '''print(
         add_product_to_card(
-            card_id=5338790508,
-            product_id=products.get('sea-trout-murmansk-chilled-4-5kg-inarctica'),
+            card_id='377157791',
+            product_id='c0f5cd03-fcdc-459e-88ca-6ac06e47e82e',
             access_token=elastickpath_access_token,
-            quantity=1
-            )
+            quantity='1'
+            ),
+        '\n\n'
         )'''
-    print(get_card('5338790508', elastickpath_access_token))
-    print(get_card_items('5338790508', elastickpath_access_token))
+    #print(get_card('377157791', elastickpath_access_token))
+    #print(get_card_items('377157791', elastickpath_access_token))
+    print(remove_cart_item('377157791', 'c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
