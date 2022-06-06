@@ -101,13 +101,13 @@ if __name__ == '__main__':
     elastickpath_access_token = os.getenv('ELASTICPATH_ACCESS_TOKEN')
     #print(get_all_products(elastickpath_access_token))
     #print(get_product('c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
-    print(
+    '''print(
         add_product_to_card(
             card_id=5338790508,
             product_id=products.get('sea-trout-murmansk-chilled-4-5kg-inarctica'),
             access_token=elastickpath_access_token,
             quantity=1
             )
-        )
+        )'''
     print(get_card('5338790508', elastickpath_access_token))
     print(get_card_items('5338790508', elastickpath_access_token))

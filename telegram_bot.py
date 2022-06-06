@@ -42,11 +42,14 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
     chat_id = update.effective_message.chat_id
     query = update.callback_query
     query.answer()
+    logger.info('user was there')
+    logger.info(query.data)
     if '|' in query.data:
+        logger.info('user is here')
         product_id, card = query.data.strip('|')
         _, quantity = card.split(':')
-        log = add_product_to_card(chat_id, product_id, elastickpath_access_token, quantity)
-        logger.info(f'Card respon api\n{log}')
+        add_product_to_card(chat_id, product_id, elastickpath_access_token, quantity)
+        logger.info(f'Succed added product to card')
         return HANDLE_MENU
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     product_id = query.data
@@ -63,7 +66,7 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
             InlineKeyboardButton('2 kg', callback_data=f'{product_id}|card:2'),
             InlineKeyboardButton('3 kg', callback_data=f'{product_id}|card:3')
             ],
-        [InlineKeyboardButton('Корзина', callback_data='all_card')],
+        [InlineKeyboardButton('Корзина', callback_data='productcard')],
         [InlineKeyboardButton('Назад', callback_data='back')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -101,10 +104,13 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
 def handle_cart(elastickpath_access_token, update: Update, context: CallbackContext):
     chat_id = update.effective_message.chat_id
     cards = get_card(chat_id, elastickpath_access_token)
+    logger.info(f'Handle card respon api\n{cards}')
     card_items = get_card_items(chat_id, elastickpath_access_token)
+    logger.info(f'Handle card respon api\n{card_items}')
     card_total_price = card_items.get('data').get('meta').get('display_price').get('with_tax').get('formatted')
     products_list = []
-    for item in cards.get('data'):
+    for item in card_items.get('data'):
+        logger.info(f'Handle card respon api\n{item}')
         item_name = item.get('name')
         item_quantity = item.get('quantity')
         item_price_per_item = item.get('meta').get('display_price').get('with_tax').get('unit').get('formatted')
@@ -173,10 +179,12 @@ def main():
                 ],
             HANDLE_DESCRIPTION: [
                 CallbackQueryHandler(partial_handle_describtion),
+                CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$"),
                 ],
             HANDLE_MENU: [
                 CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
-                CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$")
+                CallbackQueryHandler(partial_handle_describtion, pattern="^(\S{3,}card[1-3])$"),
+                CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$")
             ],
             HANDLE_CART: [
                 CallbackQueryHandler(partial_handle_cart)
