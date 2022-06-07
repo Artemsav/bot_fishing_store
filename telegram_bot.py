@@ -18,7 +18,7 @@ from storing_data import FishShopPersistence
 logger = logging.getLogger(__name__)
 
 START, HANDLE_MENU, HANDLE_DESCRIPTION,\
-    HANDLE_CART, WAITING_EMAIL = range(5)
+    HANDLE_CART, WAITING_EMAIL, CLOSE_ORDER = range(6)
 
 
 def start(products, update: Update, context: CallbackContext) -> None:
@@ -76,9 +76,7 @@ def handle_product_button(elastickpath_access_token, update: Update, context: Ca
     query = update.callback_query
     product_id, card = query.data.split('|')
     _, quantity = card.split(':')
-    logger.info(f'vars\nchat_id:{chat_id}product_id:{product_id}quantity:{quantity}')
     add_product_to_card(chat_id, product_id, elastickpath_access_token, int(quantity))
-    logger.info(f'Succed added product to card {product_id} in quantity {quantity}')
     return HANDLE_MENU
 
 
@@ -97,7 +95,7 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
         chat_id=chat_id,
-        text='Please choose:',
+        text='Пожалуйста выберите товар',
         reply_markup=reply_markup
         )
     return HANDLE_DESCRIPTION
@@ -130,9 +128,7 @@ def handle_cart(elastickpath_access_token, update: Update, context: CallbackCont
     keyboard.append(pay_button)
     reply_markup = InlineKeyboardMarkup(keyboard)
     all_products = ''.join(product for product in products_list)
-    logger.info(f'handle_cart\n{all_products}')
     card_message = f'{all_products}Total:{card_total_price}'
-    logger.info(f'handle_cart\n{card_message}')
     context.bot.send_message(
         chat_id=chat_id,
         text=card_message,
@@ -150,7 +146,7 @@ def remove_card_item(elastickpath_access_token, update: Update, context: Callbac
     return HANDLE_CART
 
 
-def handle_pay_request(update: Update, context: CallbackContext):
+def handle_pay_request(redis_db, update: Update, context: CallbackContext):
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -162,15 +158,40 @@ def handle_pay_request(update: Update, context: CallbackContext):
     return WAITING_EMAIL
 
 
-def handle_pay_request_phone(update: Update, context: CallbackContext):
-    chat_id = update.effective_message.message_id
+def handle_pay_request_phone(redis_db, update: Update, context: CallbackContext):
+    chat_id = update.effective_message.chat_id
+    email = update.message.text
+    chat_id_redis = f'{chat_id}_email'
+    redis_db.set(chat_id_redis, email)
     message = 'Пришлите пожалуйста ваш телефонный номер'
     context.bot.send_message(
         chat_id=chat_id,
         text=message,
     )
-    return WAITING_EMAIL
+    return CLOSE_ORDER
 
+
+def close_order(redis_db, update: Update, context: CallbackContext):
+    chat_id = update.effective_message.chat_id
+    chat_id_redis_email = f'{chat_id}_email'
+    email = redis_db.get(chat_id_redis_email).decode('utf-8')
+    phone = update.message.text
+    chat_id_redis_phone = f'{chat_id}_phone'
+    redis_db.set(chat_id_redis_phone, phone)
+    message = f'Ваш email:{email}\nВаш телефон: {phone}'
+    keyboard = [
+        [
+            InlineKeyboardButton('Да', callback_data='yes'),
+            InlineKeyboardButton('Нет', callback_data='no'),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+        reply_markup=reply_markup
+    )
+    return CLOSE_ORDER
 
 def handle_error(update: Update, context: CallbackContext):
     """Log Errors caused by Updates."""
@@ -219,6 +240,9 @@ def main():
     partial_handle_cart = partial(handle_cart, elastickpath_access_token)
     partial_handle_product_button = partial(handle_product_button, elastickpath_access_token)
     partial_remove_card_item = partial(remove_card_item, elastickpath_access_token)
+    partial_handle_pay_request = partial(handle_pay_request, redis_base)
+    partial_handle_pay_request_phone = partial(handle_pay_request_phone, redis_base)
+    partial_close_order = partial(close_order, redis_base)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
@@ -237,12 +261,20 @@ def main():
             ],
             HANDLE_CART: [
                 CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
-                CallbackQueryHandler(handle_pay_request_phone, pattern="^(paybutton)$"),
+                CallbackQueryHandler(partial_handle_pay_request, pattern="^(paybutton)$"),
                 CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
                 CallbackQueryHandler(partial_remove_card_item)
             ],
             WAITING_EMAIL: [
-                MessageHandler(Filters.text & ~Filters.command, handle_pay_request_phone)
+                MessageHandler(
+                    Filters.text & ~Filters.command,
+                    partial_handle_pay_request_phone
+                    ),
+            ],
+            CLOSE_ORDER: [
+                CallbackQueryHandler(partial_handle_menu, pattern="^(yes)$"),
+                CallbackQueryHandler(partial_handle_pay_request, pattern="^(no)$"),
+                MessageHandler(Filters.text & ~Filters.command, partial_close_order),
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
@@ -257,6 +289,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-    '''pic=os.path.expanduser("~/a.png")
-       context.bot.send_photo(chat_id=update.effective_chat.id, photo=open(pic,"rb"))'''

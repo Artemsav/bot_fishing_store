@@ -1,6 +1,5 @@
 from ast import Str
 import requests
-from dotenv import load_dotenv
 import os
 from pathlib import Path
 
@@ -92,24 +91,4 @@ def remove_cart_item(card_id: Str, product_id: Str, access_token: Str):
 
 
 if __name__ == '__main__':
-    load_dotenv()
-    products = {
-        'gutted-carp-with-head': 'f8a358d9-bc59-4f6b-839b-e9ae6b880453',
-        'gutted-cod-headless-chilled': '7a569aa3-140f-4969-8d42-6a405f243709',
-        'sea-trout-murmansk-chilled-4-5kg-inarctica': 'c0f5cd03-fcdc-459e-88ca-6ac06e47e82e'
-    }
-    elastickpath_access_token = os.getenv('ELASTICPATH_ACCESS_TOKEN')
-    #print(get_all_products(elastickpath_access_token))
-    #print(get_product('c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
-    '''print(
-        add_product_to_card(
-            card_id='377157791',
-            product_id='c0f5cd03-fcdc-459e-88ca-6ac06e47e82e',
-            access_token=elastickpath_access_token,
-            quantity='1'
-            ),
-        '\n\n'
-        )'''
-    #print(get_card('377157791', elastickpath_access_token))
-    print(get_card_items('377157791', elastickpath_access_token))
-    print(remove_cart_item('377157791', 'f73c387d-a08c-42e0-86b7-82e560042617', elastickpath_access_token))
+    pass
