@@ -12,6 +12,7 @@ from telegram.ext import (CallbackContext, CallbackQueryHandler,
 from api_handler import (add_product_to_card, get_all_products, get_card,
                          get_card_items, get_image, get_product,
                          remove_cart_item, create_customer)
+from get_access_token import get_access_token
 from logging_handler import TelegramLogsHandler
 from storing_data import FishShopPersistence
 
@@ -223,7 +224,9 @@ def main():
     redis_host = os.getenv('REDDIS_HOST')
     redis_port = os.getenv('REDDIS_PORT')
     redis_pass = os.getenv('REDDIS_PASS')
-    elastickpath_access_token = os.getenv('ELASTICPATH_ACCESS_TOKEN')
+    el_path_client_id = os.getenv('ELASTICPATH_CLIENT_ID')
+    el_path_client_secret = os.getenv('ELASTICPATH_CLIENT_SECRET')
+    elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret).get('access_token')
     redis_base = redis.Redis(
         host=redis_host,
         port=redis_port,
