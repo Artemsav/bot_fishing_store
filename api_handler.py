@@ -111,5 +111,5 @@ if __name__ == '__main__':
         '\n\n'
         )'''
     #print(get_card('377157791', elastickpath_access_token))
-    #print(get_card_items('377157791', elastickpath_access_token))
-    print(remove_cart_item('377157791', 'c0f5cd03-fcdc-459e-88ca-6ac06e47e82e', elastickpath_access_token))
+    print(get_card_items('377157791', elastickpath_access_token))
+    print(remove_cart_item('377157791', 'f73c387d-a08c-42e0-86b7-82e560042617', elastickpath_access_token))
