@@ -163,9 +163,7 @@ def handle_pay_request(update: Update, context: CallbackContext):
 
 
 def handle_pay_request_phone(update: Update, context: CallbackContext):
-    message_id = update.effective_message.message_id
-    chat_id = update.effective_message.chat_id
-    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    chat_id = update.effective_message.message_id
     message = 'Пришлите пожалуйста ваш телефонный номер'
     context.bot.send_message(
         chat_id=chat_id,
@@ -244,7 +242,7 @@ def main():
                 CallbackQueryHandler(partial_remove_card_item)
             ],
             WAITING_EMAIL: [
-                MessageHandler(Filters.regex("^(Сдаться)$"), handle_pay_request_phone)
+                MessageHandler(Filters.text & ~Filters.command, handle_pay_request_phone)
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
