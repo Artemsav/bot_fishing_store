@@ -1,1 +1,1 @@
-bot-vk: python3 telegram_bot.py
+bot-telegram: python3 telegram_bot.py
