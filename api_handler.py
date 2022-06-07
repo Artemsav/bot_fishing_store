@@ -29,14 +29,14 @@ def add_product_to_card(card_id: Str, product_id: Str, access_token: Str, quanti
     headers = {
         'Authorization': f'Bearer {access_token}'
     }
-    json_data = {
+    payload = {
         'data': {
             'id': product_id,
             'type': 'cart_item',
             'quantity': quantity,
         },
     }
-    response = requests.post(url, headers=headers, json=json_data)
+    response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
 
 
@@ -86,6 +86,24 @@ def remove_cart_item(card_id: Str, product_id: Str, access_token: Str):
     }
     response = requests.delete(url, headers=headers)
     response.raise_for_status()
+
+
+def create_customer(phone: Str, email: Str, password: Str, access_token: Str):
+    url = 'https://api.moltin.com/v2/customers'
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+    payload = {
+        'data': {
+            'type': 'customer',
+            'name': phone,
+            'email': email,
+            'password': password,
+        },
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+    return response.text
 
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@ from telegram.ext import (CallbackContext, CallbackQueryHandler,
 
 from api_handler import (add_product_to_card, get_all_products, get_card,
                          get_card_items, get_image, get_product,
-                         remove_cart_item)
+                         remove_cart_item, create_customer)
 from logging_handler import TelegramLogsHandler
 from storing_data import FishShopPersistence
 
@@ -112,7 +112,6 @@ def handle_cart(elastickpath_access_token, update: Update, context: CallbackCont
     products_list = []
     keyboard = []
     for item in card_items.get('data'):
-        logger.info(f'Handle card respon api\n{item}')
         card_item_id = item.get('id')
         item_name = item.get('name')
         item_quantity = item.get('quantity')
@@ -171,13 +170,22 @@ def handle_pay_request_phone(redis_db, update: Update, context: CallbackContext)
     return CLOSE_ORDER
 
 
-def close_order(redis_db, update: Update, context: CallbackContext):
+def close_order(
+    redis_db,
+    elastickpath_access_token,
+    update: Update,
+    context: CallbackContext
+):
     chat_id = update.effective_message.chat_id
     chat_id_redis_email = f'{chat_id}_email'
     email = redis_db.get(chat_id_redis_email).decode('utf-8')
+    password = '12345'
     phone = update.message.text
-    chat_id_redis_phone = f'{chat_id}_phone'
-    redis_db.set(chat_id_redis_phone, phone)
+    create_customer(
+        phone,
+        email,
+        password,
+        elastickpath_access_token)
     message = f'Ваш email:{email}\nВаш телефон: {phone}'
     keyboard = [
         [
@@ -242,7 +250,7 @@ def main():
     partial_remove_card_item = partial(remove_card_item, elastickpath_access_token)
     partial_handle_pay_request = partial(handle_pay_request, redis_base)
     partial_handle_pay_request_phone = partial(handle_pay_request_phone, redis_base)
-    partial_close_order = partial(close_order, redis_base)
+    partial_close_order = partial(close_order, redis_base, elastickpath_access_token)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
