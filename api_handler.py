@@ -38,7 +38,6 @@ def add_product_to_card(card_id: Str, product_id: Str, access_token: Str, quanti
     }
     response = requests.post(url, headers=headers, json=json_data)
     response.raise_for_status()
-    return response.json()
 
 
 def get_card(card_id: Str, access_token: Str):
@@ -87,7 +86,6 @@ def remove_cart_item(card_id: Str, product_id: Str, access_token: Str):
     }
     response = requests.delete(url, headers=headers)
     response.raise_for_status()
-    return response.json()
 
 
 if __name__ == '__main__':
