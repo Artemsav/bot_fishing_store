@@ -17,7 +17,7 @@ To run telegram_bot:
 python telegram_bot.py
 ```
 
-Example of telegram bot (or you can find it here: @fixme):
+Example of telegram bot (or you can find it here: @fish_dvm_store_bot):
 ![Example](./images/fish-shop.gif)
 
 
