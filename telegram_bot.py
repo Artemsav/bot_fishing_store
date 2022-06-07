@@ -17,7 +17,8 @@ from storing_data import FishShopPersistence
 
 logger = logging.getLogger(__name__)
 
-START, HANDLE_MENU, HANDLE_DESCRIPTION, HANDLE_CART = range(4)
+START, HANDLE_MENU, HANDLE_DESCRIPTION,\
+    HANDLE_CART, WAITING_EMAIL = range(5)
 
 
 def start(products, update: Update, context: CallbackContext) -> None:
@@ -41,8 +42,6 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     query = update.callback_query
-    query.answer()
-    logger.info('user was there')
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     product_id = query.data
     product_payload = get_product(product_id, elastickpath_access_token)
@@ -93,8 +92,8 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
         product_id = product.get('id')
         key = [InlineKeyboardButton(product_name, callback_data=product_id)]
         keyboard.append(key)
-    card_keyboard = [InlineKeyboardButton('Корзина', callback_data='productcard')]
-    keyboard.append(card_keyboard)
+    card_button = [InlineKeyboardButton('Корзина', callback_data='productcard')]
+    keyboard.append(card_button)
     reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
         chat_id=chat_id,
@@ -116,15 +115,19 @@ def handle_cart(elastickpath_access_token, update: Update, context: CallbackCont
     keyboard = []
     for item in card_items.get('data'):
         logger.info(f'Handle card respon api\n{item}')
-        item_id = item.get('product_id')
+        card_item_id = item.get('id')
         item_name = item.get('name')
         item_quantity = item.get('quantity')
         item_price_per_item = item.get('meta').get('display_price').get('with_tax').get('unit').get('formatted')
         item_total_price = item.get('meta').get('display_price').get('with_tax').get('value').get('formatted')
         products_describtion = f'{item_name}\n{item_price_per_item} per kg\n{item_quantity}kg in cart for {item_total_price}\n\n'
         products_list.append(products_describtion)
-        key = [InlineKeyboardButton(f'Убрать из корзины {item_name}', callback_data=item_id)]
+        key = [InlineKeyboardButton(f'Убрать из корзины {item_name}', callback_data=card_item_id)]
         keyboard.append(key)
+    back_button = [InlineKeyboardButton('Назад', callback_data='back')]
+    keyboard.append(back_button)
+    pay_button = [InlineKeyboardButton('Оплатить', callback_data='paybutton')]
+    keyboard.append(pay_button)
     reply_markup = InlineKeyboardMarkup(keyboard)
     all_products = ''.join(product for product in products_list)
     logger.info(f'handle_cart\n{all_products}')
@@ -133,7 +136,7 @@ def handle_cart(elastickpath_access_token, update: Update, context: CallbackCont
     context.bot.send_message(
         chat_id=chat_id,
         text=card_message,
-        reply_markup = reply_markup
+        reply_markup=reply_markup
     )
     return HANDLE_CART
 
@@ -143,7 +146,32 @@ def remove_card_item(elastickpath_access_token, update: Update, context: Callbac
     query = update.callback_query
     product_id = query.data
     remove_cart_item(card_id=chat_id, product_id=product_id, access_token=elastickpath_access_token)
+    handle_cart(elastickpath_access_token, update, context)
     return HANDLE_CART
+
+
+def handle_pay_request(update: Update, context: CallbackContext):
+    message_id = update.effective_message.message_id
+    chat_id = update.effective_message.chat_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    message = 'Пришлите пожалуйста ваш email'
+    context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+    )
+    return WAITING_EMAIL
+
+
+def handle_pay_request_phone(update: Update, context: CallbackContext):
+    message_id = update.effective_message.message_id
+    chat_id = update.effective_message.chat_id
+    context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    message = 'Пришлите пожалуйста ваш телефонный номер'
+    context.bot.send_message(
+        chat_id=chat_id,
+        text=message,
+    )
+    return WAITING_EMAIL
 
 
 def handle_error(update: Update, context: CallbackContext):
@@ -210,7 +238,13 @@ def main():
                 CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$")
             ],
             HANDLE_CART: [
+                CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
+                CallbackQueryHandler(handle_pay_request_phone, pattern="^(paybutton)$"),
+                CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
                 CallbackQueryHandler(partial_remove_card_item)
+            ],
+            WAITING_EMAIL: [
+                MessageHandler(Filters.regex("^(Сдаться)$"), handle_pay_request_phone)
             ]
         },
         fallbacks=[CommandHandler("end", end_conversation)],
