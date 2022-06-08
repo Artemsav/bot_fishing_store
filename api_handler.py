@@ -24,7 +24,12 @@ def get_product(product_id: Str, access_token: Str):
     return response.json()
 
 
-def add_product_to_card(card_id: Str, product_id: Str, access_token: Str, quantity: int):
+def add_product_to_card(
+    card_id: Str,
+    product_id: Str,
+    access_token: Str,
+    quantity: int
+) -> None:
     url = f'https://api.moltin.com/v2/carts/{card_id}/items'
     headers = {
         'Authorization': f'Bearer {access_token}'
@@ -79,7 +84,7 @@ def get_image(image_id: Str, access_token: Str):
     return named_path
 
 
-def remove_cart_item(card_id: Str, product_id: Str, access_token: Str):
+def remove_cart_item(card_id: Str, product_id: Str, access_token: Str) -> None:
     url = f'https://api.moltin.com/v2/carts/{card_id}/items/{product_id}'
     headers = {
         'Authorization': f'Bearer {access_token}'
@@ -88,7 +93,12 @@ def remove_cart_item(card_id: Str, product_id: Str, access_token: Str):
     response.raise_for_status()
 
 
-def create_customer(phone: Str, email: Str, password: Str, access_token: Str):
+def create_customer(
+    phone: Str,
+    email: Str,
+    password: Str,
+    access_token: Str
+) -> None:
     url = 'https://api.moltin.com/v2/customers'
     headers = {
         'Authorization': f'Bearer {access_token}'
@@ -103,7 +113,6 @@ def create_customer(phone: Str, email: Str, password: Str, access_token: Str):
     }
     response = requests.post(url, headers=headers, json=payload)
     response.raise_for_status()
-    return response.text
 
 
 if __name__ == '__main__':

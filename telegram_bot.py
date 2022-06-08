@@ -39,7 +39,11 @@ def start(products, update: Update, context: CallbackContext) -> None:
     return HANDLE_DESCRIPTION
 
 
-def handle_describtion(elastickpath_access_token, update: Update, context: CallbackContext) -> None:
+def handle_describtion(
+    elastickpath_access_token,
+    update: Update,
+    context: CallbackContext
+):
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     query = update.callback_query
@@ -72,7 +76,11 @@ def handle_describtion(elastickpath_access_token, update: Update, context: Callb
     return HANDLE_MENU
 
 
-def handle_product_button(elastickpath_access_token, update: Update, context: CallbackContext):
+def handle_product_button(
+    elastickpath_access_token,
+    update: Update,
+    context: CallbackContext
+):
     chat_id = update.effective_message.chat_id
     query = update.callback_query
     product_id, card = query.data.split('|')
@@ -201,6 +209,7 @@ def close_order(
         reply_markup=reply_markup
     )
     return CLOSE_ORDER
+
 
 def handle_error(update: Update, context: CallbackContext):
     """Log Errors caused by Updates."""
