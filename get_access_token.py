@@ -11,6 +11,7 @@ def get_access_token(client_id: str, client_secret: str):
         'grant_type': 'client_credentials'
         }
     r = requests.put(url=url, data=data)
+    r.raise_for_status()
     token = r.json()
     return token
 

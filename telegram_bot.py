@@ -1,9 +1,11 @@
+from curses import echo
 import logging
 import os
 from functools import partial
 
 import redis
 from dotenv import load_dotenv
+from requests.exceptions import HTTPError
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (CallbackContext, CallbackQueryHandler,
                           CommandHandler, ConversationHandler, Filters,
@@ -22,24 +24,28 @@ START, HANDLE_MENU, HANDLE_DESCRIPTION,\
     HANDLE_CART, WAITING_EMAIL, CLOSE_ORDER = range(6)
 
 
-def start(products, update: Update, context: CallbackContext) -> None:
+def create_menu(products):
     keyboard = []
     for product in products.get('data'):
         product_name = product.get('name')
         product_id = product.get('id')
-        key = [InlineKeyboardButton(product_name, callback_data=product_id)]
-        keyboard.append(key)
+        button = [InlineKeyboardButton(product_name, callback_data=product_id)]
+        keyboard.append(button)
     card_keyboard = [InlineKeyboardButton('Корзина', callback_data='productcard')]
     keyboard.append(card_keyboard)
     reply_markup = InlineKeyboardMarkup(keyboard)
+    return reply_markup
+
+
+def start(products, update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
-        'Hello! Please choose:',
-        reply_markup=reply_markup
+        'Пожалуйста выберите товар',
+        reply_markup=create_menu(products, update, context)
         )
     return HANDLE_DESCRIPTION
 
 
-def handle_describtion(
+def handle_description(
     elastickpath_access_token,
     update: Update,
     context: CallbackContext
@@ -93,19 +99,10 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    keyboard = []
-    for product in products.get('data'):
-        product_name = product.get('name')
-        product_id = product.get('id')
-        key = [InlineKeyboardButton(product_name, callback_data=product_id)]
-        keyboard.append(key)
-    card_button = [InlineKeyboardButton('Корзина', callback_data='productcard')]
-    keyboard.append(card_button)
-    reply_markup = InlineKeyboardMarkup(keyboard)
     context.bot.send_message(
         chat_id=chat_id,
         text='Пожалуйста выберите товар',
-        reply_markup=reply_markup
+        reply_markup=create_menu(products, update, context)
         )
     return HANDLE_DESCRIPTION
 
@@ -128,8 +125,8 @@ def handle_cart(elastickpath_access_token, update: Update, context: CallbackCont
         item_total_price = item.get('meta').get('display_price').get('with_tax').get('value').get('formatted')
         products_describtion = f'{item_name}\n{item_price_per_item} per kg\n{item_quantity}kg in cart for {item_total_price}\n\n'
         products_list.append(products_describtion)
-        key = [InlineKeyboardButton(f'Убрать из корзины {item_name}', callback_data=card_item_id)]
-        keyboard.append(key)
+        button = [InlineKeyboardButton(f'Убрать из корзины {item_name}', callback_data=card_item_id)]
+        keyboard.append(button)
     back_button = [InlineKeyboardButton('Назад', callback_data='back')]
     keyboard.append(back_button)
     pay_button = [InlineKeyboardButton('Оплатить', callback_data='paybutton')]
@@ -241,71 +238,74 @@ def main():
         port=redis_port,
         password=redis_pass
         )
-    products = get_all_products(elastickpath_access_token)
-    persistence = FishShopPersistence(redis_base)
-    logging_token = os.getenv('TG_TOKEN_LOGGING')
-    logging_bot = Bot(token=logging_token)
-    logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(TelegramLogsHandler(tg_bot=logging_bot, chat_id=user_id))
-    logger.info('Fish store bot запущен')
-    """Start the bot."""
-    updater = Updater(token, persistence=persistence)
-    dispatcher = updater.dispatcher
-    partial_start = partial(start, products)
-    partial_handle_menu = partial(handle_menu, products)
-    partial_handle_describtion = partial(handle_describtion, elastickpath_access_token)
-    partial_handle_cart = partial(handle_cart, elastickpath_access_token)
-    partial_handle_product_button = partial(handle_product_button, elastickpath_access_token)
-    partial_remove_card_item = partial(remove_card_item, elastickpath_access_token)
-    partial_handle_pay_request = partial(handle_pay_request, redis_base)
-    partial_handle_pay_request_phone = partial(handle_pay_request_phone, redis_base)
-    partial_close_order = partial(close_order, redis_base, elastickpath_access_token)
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", partial_start)],
-        states={
-            START: [
-                MessageHandler(Filters.text, partial_start),
+    try:
+        products = get_all_products(elastickpath_access_token)
+        persistence = FishShopPersistence(redis_base)
+        logging_token = os.getenv('TG_TOKEN_LOGGING')
+        logging_bot = Bot(token=logging_token)
+        logging.basicConfig(
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+                )
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(TelegramLogsHandler(tg_bot=logging_bot, chat_id=user_id))
+        logger.info('Fish store bot запущен')
+        """Start the bot."""
+        updater = Updater(token, persistence=persistence)
+        dispatcher = updater.dispatcher
+        partial_start = partial(start, products)
+        partial_handle_menu = partial(handle_menu, products)
+        partial_handle_describtion = partial(handle_description, elastickpath_access_token)
+        partial_handle_cart = partial(handle_cart, elastickpath_access_token)
+        partial_handle_product_button = partial(handle_product_button, elastickpath_access_token)
+        partial_remove_card_item = partial(remove_card_item, elastickpath_access_token)
+        partial_handle_pay_request = partial(handle_pay_request, redis_base)
+        partial_handle_pay_request_phone = partial(handle_pay_request_phone, redis_base)
+        partial_close_order = partial(close_order, redis_base, elastickpath_access_token)
+        conv_handler = ConversationHandler(
+            entry_points=[CommandHandler("start", partial_start)],
+            states={
+                START: [
+                    MessageHandler(Filters.text, partial_start),
+                    ],
+                HANDLE_DESCRIPTION: [
+                    CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card:[1-3])$"),
+                    CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
+                    CallbackQueryHandler(partial_handle_describtion),
+                    ],
+                HANDLE_MENU: [
+                    CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
+                    CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card:[1-3])$"),
+                    CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$")
                 ],
-            HANDLE_DESCRIPTION: [
-                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card:[1-3])$"),
-                CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
-                CallbackQueryHandler(partial_handle_describtion),
+                HANDLE_CART: [
+                    CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
+                    CallbackQueryHandler(partial_handle_pay_request, pattern="^(paybutton)$"),
+                    CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
+                    CallbackQueryHandler(partial_remove_card_item)
                 ],
-            HANDLE_MENU: [
-                CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
-                CallbackQueryHandler(partial_handle_product_button, pattern="^(\S{3,}card:[1-3])$"),
-                CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$")
-            ],
-            HANDLE_CART: [
-                CallbackQueryHandler(partial_handle_cart, pattern="^(productcard)$"),
-                CallbackQueryHandler(partial_handle_pay_request, pattern="^(paybutton)$"),
-                CallbackQueryHandler(partial_handle_menu, pattern="^(back)$"),
-                CallbackQueryHandler(partial_remove_card_item)
-            ],
-            WAITING_EMAIL: [
-                MessageHandler(
-                    Filters.text & ~Filters.command,
-                    partial_handle_pay_request_phone
-                    ),
-            ],
-            CLOSE_ORDER: [
-                CallbackQueryHandler(partial_handle_menu, pattern="^(yes)$"),
-                CallbackQueryHandler(partial_handle_pay_request, pattern="^(no)$"),
-                MessageHandler(Filters.text & ~Filters.command, partial_close_order),
-            ]
-        },
-        fallbacks=[CommandHandler("end", end_conversation)],
-        name="my_conversation",
-        persistent=True,
-    )
-    dispatcher.add_handler(conv_handler)
-    dispatcher.add_error_handler(handle_error)
-    updater.start_polling()
-    updater.idle()
-
+                WAITING_EMAIL: [
+                    MessageHandler(
+                        Filters.text & ~Filters.command,
+                        partial_handle_pay_request_phone
+                        ),
+                ],
+                CLOSE_ORDER: [
+                    CallbackQueryHandler(partial_handle_menu, pattern="^(yes)$"),
+                    CallbackQueryHandler(partial_handle_pay_request, pattern="^(no)$"),
+                    MessageHandler(Filters.text & ~Filters.command, partial_close_order),
+                ]
+            },
+            fallbacks=[CommandHandler("end", end_conversation)],
+            name="my_conversation",
+            persistent=True,
+        )
+        logger.info(f'conv_handler запущен {conv_handler.__str__}')
+        dispatcher.add_handler(conv_handler)
+        dispatcher.add_error_handler(handle_error)
+        updater.start_polling()
+        updater.idle()
+    except HTTPError:
+        elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret).get('access_token')
 
 if __name__ == '__main__':
     main()

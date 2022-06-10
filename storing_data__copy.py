@@ -1,13 +1,13 @@
 import pickle
 from collections import defaultdict
 from redis import Redis
-from telegram.ext import BasePersistence
+from telegram.ext import DictPersistence, BasePersistence
 from telegram.ext.utils.types import ConversationDict, BD, CD, UD
 from typing import Optional, Tuple, DefaultDict
 from exceptions import StoringDataError
 
 
-class FishShopPersistence(BasePersistence):
+class FishShopPersistence(DictPersistence):
     def __init__(
         self,
         reddisdb: Redis,
@@ -70,21 +70,3 @@ class FishShopPersistence(BasePersistence):
         self.conversations[name][key] = new_state
         if not self.on_flush:
             self.dump_redis()
-
-    def get_bot_data(self) -> BD:
-        return super().get_bot_data()
-
-    def get_chat_data(self) -> DefaultDict[int, CD]:
-        return super().get_chat_data()
-
-    def get_user_data(self) -> DefaultDict[int, UD]:
-        return super().get_user_data()
-
-    def update_bot_data(self, data: BD) -> None:
-        return super().update_bot_data(data)
-
-    def update_chat_data(self, chat_id: int, data: CD) -> None:
-        return super().update_chat_data(chat_id, data)
-
-    def update_user_data(self, user_id: int, data: UD) -> None:
-        return super().update_user_data(user_id, data)
