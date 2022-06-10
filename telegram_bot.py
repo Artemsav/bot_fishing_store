@@ -24,7 +24,7 @@ START, HANDLE_MENU, HANDLE_DESCRIPTION,\
     HANDLE_CART, WAITING_EMAIL, CLOSE_ORDER = range(6)
 
 
-def create_menu(products):
+def create_menu(products, update: Update, context: CallbackContext):
     keyboard = []
     for product in products.get('data'):
         product_name = product.get('name')
