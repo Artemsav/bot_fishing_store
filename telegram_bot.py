@@ -1,4 +1,3 @@
-from curses import echo
 import logging
 import os
 from functools import partial
@@ -24,7 +23,7 @@ START, HANDLE_MENU, HANDLE_DESCRIPTION,\
     HANDLE_CART, WAITING_EMAIL, CLOSE_ORDER = range(6)
 
 
-def create_menu(products, update: Update, context: CallbackContext):
+def create_menu(products):
     keyboard = []
     for product in products.get('data'):
         product_name = product.get('name')
@@ -40,7 +39,7 @@ def create_menu(products, update: Update, context: CallbackContext):
 def start(products, update: Update, context: CallbackContext) -> None:
     update.message.reply_text(
         'Пожалуйста выберите товар',
-        reply_markup=create_menu(products, update, context)
+        reply_markup=create_menu(products)
         )
     return HANDLE_DESCRIPTION
 
@@ -102,7 +101,7 @@ def handle_menu(products, update: Update, context: CallbackContext) -> None:
     context.bot.send_message(
         chat_id=chat_id,
         text='Пожалуйста выберите товар',
-        reply_markup=create_menu(products, update, context)
+        reply_markup=create_menu(products)
         )
     return HANDLE_DESCRIPTION
 
