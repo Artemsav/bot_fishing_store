@@ -15,7 +15,7 @@ from api_handler import (add_product_to_card, get_all_products, get_card,
                          remove_cart_item, create_customer)
 from get_access_token import get_access_token
 from logging_handler import TelegramLogsHandler
-from storing_data import FishShopPersistence
+from storing_data__copy import FishShopPersistence
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 import pickle
 from collections import defaultdict
 from redis import Redis
-from telegram.ext import DictPersistence, BasePersistence
+from telegram.ext import DictPersistence
 from telegram.ext.utils.types import ConversationDict, BD, CD, UD
 from typing import Optional, Tuple, DefaultDict
 from exceptions import StoringDataError
@@ -11,17 +11,13 @@ class FishShopPersistence(DictPersistence):
     def __init__(
         self,
         reddisdb: Redis,
-        on_flush: bool = False,
         store_user_data: bool = False,
         store_chat_data: bool = False,
         store_bot_data: bool = False,
-        store_callback_data: bool = False
+        conversations_json: str = ''
     ):
-        super().__init__(store_user_data, store_chat_data, store_bot_data, store_callback_data)
+        super().__init__(store_user_data, store_chat_data, store_bot_data, conversations_json)
         self.reddisdb = reddisdb
-        self.on_flush = on_flush
-        self.conversations = None
-        self.on_flush = False
 
     def load_redis(self) -> None:
         try:
