@@ -298,13 +298,14 @@ def main():
             name="my_conversation",
             persistent=True,
         )
-        logger.info(f'conv_handler запущен {conv_handler.__str__}')
+        logger.info(f'conv_handler запущен {conv_handler.__repr__}')
         dispatcher.add_handler(conv_handler)
         dispatcher.add_error_handler(handle_error)
         updater.start_polling()
         updater.idle()
     except HTTPError:
         elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret).get('access_token')
+
 
 if __name__ == '__main__':
     main()

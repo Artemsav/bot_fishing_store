@@ -3,8 +3,9 @@ from collections import defaultdict
 from redis import Redis
 from telegram.ext import BasePersistence
 from telegram.ext.utils.types import ConversationDict, BD, CD, UD
-from typing import Optional, Tuple, DefaultDict
+from typing import DefaultDict, Dict, Optional, Tuple, Any
 from exceptions import StoringDataError
+from copy import deepcopy
 
 
 class FishShopPersistence(BasePersistence):
@@ -21,7 +22,6 @@ class FishShopPersistence(BasePersistence):
         self.reddisdb = reddisdb
         self.on_flush = on_flush
         self.conversations = None
-        self.on_flush = False
 
     def load_redis(self) -> None:
         try:
@@ -71,20 +71,54 @@ class FishShopPersistence(BasePersistence):
         if not self.on_flush:
             self.dump_redis()
 
-    def get_bot_data(self) -> BD:
-        return super().get_bot_data()
+    def get_user_data(self) -> DefaultDict[int, Dict[Any, Any]]:
+        '''Returns the user_data from the pickle on Redis if it exists or an empty :obj:`defaultdict`.'''
+        if self.user_data:
+            pass
+        else:
+            self.load_redis()
+        return deepcopy(self.user_data)
 
-    def get_chat_data(self) -> DefaultDict[int, CD]:
-        return super().get_chat_data()
+    def get_chat_data(self) -> DefaultDict[int, Dict[Any, Any]]:
+        '''Returns the chat_data from the pickle on Redis if it exists or an empty :obj:`defaultdict`.'''
+        if self.chat_data:
+            pass
+        else:
+            self.load_redis()
+        return deepcopy(self.chat_data)
 
-    def get_user_data(self) -> DefaultDict[int, UD]:
-        return super().get_user_data()
+    def get_bot_data(self) -> Dict[Any, Any]:
+        '''Returns the bot_data from the pickle on Redis if it exists or an empty :obj:`dict`.'''
+        if self.bot_data:
+            pass
+        else:
+            self.load_redis()
+        return deepcopy(self.bot_data)
 
-    def update_bot_data(self, data: BD) -> None:
-        return super().update_bot_data(data)
+    def update_user_data(self, user_id: int, data: Dict) -> None:
+        '''Will update the user_data and depending on :attr:`on_flush` save the pickle on Redis.'''
+        if self.user_data is None:
+            self.user_data = defaultdict(dict)
+        if self.user_data.get(user_id) == data:
+            return
+        self.user_data[user_id] = data
+        if not self.on_flush:
+            self.dump_redis()
 
-    def update_chat_data(self, chat_id: int, data: CD) -> None:
-        return super().update_chat_data(chat_id, data)
+    def update_chat_data(self, chat_id: int, data: Dict) -> None:
+        '''Will update the chat_data and depending on :attr:`on_flush` save the pickle on Redis.'''
+        if self.chat_data is None:
+            self.chat_data = defaultdict(dict)
+        if self.chat_data.get(chat_id) == data:
+            return
+        self.chat_data[chat_id] = data
+        if not self.on_flush:
+            self.dump_redis()
 
-    def update_user_data(self, user_id: int, data: UD) -> None:
-        return super().update_user_data(user_id, data)
+    def update_bot_data(self, data: Dict) -> None:
+        '''Will update the bot_data and depending on :attr:`on_flush` save the pickle on Redis.'''
+        if self.bot_data == data:
+            return
+        self.bot_data = data.copy()
+        if not self.on_flush:
+            self.dump_redis()

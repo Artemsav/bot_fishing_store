@@ -6,6 +6,7 @@ speech-recognition-9529-4cfc6fe1cb67.json
 questions.json
 google-credentials.json
 quiz-questions
+storing_data__copy.py
 
 # C extensions
 *.so
@@ -142,3 +143,4 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+storing_data__copy.py
