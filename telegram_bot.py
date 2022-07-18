@@ -298,7 +298,6 @@ def main():
             name="my_conversation",
             persistent=True,
         )
-        logger.info(f'conv_handler запущен {conv_handler.__repr__}')
         dispatcher.add_handler(conv_handler)
         dispatcher.add_error_handler(handle_error)
         updater.start_polling()
