@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timedelta
 from functools import partial
 
 import redis
@@ -10,12 +11,12 @@ from telegram.ext import (CallbackContext, CallbackQueryHandler,
                           CommandHandler, ConversationHandler, Filters,
                           MessageHandler, Updater)
 
-from api_handler import (add_product_to_card, get_all_products, get_card,
-                         get_card_items, get_image, get_product,
-                         remove_cart_item, create_customer)
+from api_handler import (add_product_to_card, create_customer,
+                         get_all_products, get_card, get_card_items, get_image,
+                         get_product, remove_cart_item)
 from get_access_token import get_access_token
 from logging_handler import TelegramLogsHandler
-from storing_data__copy import FishShopPersistence
+from storing_data import FishShopPersistence
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +238,8 @@ def main():
         port=redis_port,
         password=redis_pass
         )
-    try:
+    token_excpiration_time = datetime.now() + timedelta(seconds=3600)
+    while token_excpiration_time > datetime.now():
         products = get_all_products(elastickpath_access_token)
         persistence = FishShopPersistence(redis_base)
         logging_token = os.getenv('TG_TOKEN_LOGGING')
@@ -302,7 +304,7 @@ def main():
         dispatcher.add_error_handler(handle_error)
         updater.start_polling()
         updater.idle()
-    except HTTPError:
+    else:
         elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret).get('access_token')
 
 
