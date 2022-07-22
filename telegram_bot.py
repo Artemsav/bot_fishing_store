@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime, timedelta
+import time
 from functools import partial
 
 import redis
@@ -23,6 +23,16 @@ START, HANDLE_MENU, HANDLE_DESCRIPTION,\
     HANDLE_CART, WAITING_EMAIL, CLOSE_ORDER = range(6)
 
 
+def update_token(func):
+    def inner(elastickpath_access_token, client_id_secret, update: Update, context: CallbackContext):
+        epoch_time = elastickpath_access_token.get('expires')
+        el_path_client_id, el_path_client_secret = client_id_secret
+        if time.time()> epoch_time:
+            elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret)
+        return func(elastickpath_access_token, client_id_secret, update, context)
+    return inner
+
+
 def create_menu(products):
     keyboard = []
     for product in products.get('data'):
@@ -36,8 +46,9 @@ def create_menu(products):
     return reply_markup
 
 
-def start(elastickpath_access_token, update: Update, context: CallbackContext) -> None:
-    products = get_all_products(elastickpath_access_token)
+@update_token
+def start(elastickpath_access_token, client_id_secret, update: Update, context: CallbackContext) -> None:
+    products = get_all_products(elastickpath_access_token.get('access_token'))
     update.message.reply_text(
         'Пожалуйста выберите товар',
         reply_markup=create_menu(products)
@@ -45,8 +56,10 @@ def start(elastickpath_access_token, update: Update, context: CallbackContext) -
     return HANDLE_DESCRIPTION
 
 
+@update_token
 def handle_description(
     elastickpath_access_token,
+    client_id_secret,
     update: Update,
     context: CallbackContext
 ):
@@ -55,12 +68,13 @@ def handle_description(
     query = update.callback_query
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     product_id = query.data
-    product_payload = get_product(product_id, elastickpath_access_token)
+    access_token = elastickpath_access_token.get('access_token')
+    product_payload = get_product(product_id, access_token)
     product_name = product_payload.get('data').get('name')
     product_price = product_payload.get('data').get('meta').get('display_price').get('with_tax').get('formatted')
     product_text = product_payload.get('data').get('description')
     product_image_id = product_payload.get('data').get('relationships').get('main_image').get('data').get('id')
-    path = get_image(product_image_id, elastickpath_access_token)
+    path = get_image(product_image_id, access_token)
     product_describtion = f'{product_name}\n{product_price}\n\n{product_text}'
     keyboard = [
         [
@@ -82,21 +96,26 @@ def handle_description(
     return HANDLE_MENU
 
 
+@update_token
 def handle_product_button(
     elastickpath_access_token,
+    client_id_secret,
     update: Update,
     context: CallbackContext
 ):
     chat_id = update.effective_message.chat_id
     query = update.callback_query
+    access_token = elastickpath_access_token.get('access_token')
     product_id, card = query.data.split('|')
     _, quantity = card.split(':')
-    add_product_to_card(chat_id, product_id, elastickpath_access_token, int(quantity))
+    add_product_to_card(chat_id, product_id, access_token, int(quantity))
     return HANDLE_MENU
 
 
-def handle_menu(elastickpath_access_token, update: Update, context: CallbackContext) -> None:
-    products = get_all_products(elastickpath_access_token)
+@update_token
+def handle_menu(elastickpath_access_token, client_id_secret, update: Update, context: CallbackContext) -> None:
+    access_token = elastickpath_access_token.get('access_token')
+    products = get_all_products(access_token)
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
     context.bot.delete_message(chat_id=chat_id, message_id=message_id)
@@ -108,10 +127,12 @@ def handle_menu(elastickpath_access_token, update: Update, context: CallbackCont
     return HANDLE_DESCRIPTION
 
 
-def handle_cart(elastickpath_access_token, update: Update, context: CallbackContext):
+@update_token
+def handle_cart(elastickpath_access_token, client_id_secret, update: Update, context: CallbackContext):
     chat_id = update.effective_message.chat_id
-    cards = get_card(chat_id, elastickpath_access_token)
-    card_items = get_card_items(chat_id, elastickpath_access_token)
+    access_token = elastickpath_access_token.get('access_token')
+    cards = get_card(chat_id, access_token)
+    card_items = get_card_items(chat_id, access_token)
     card_total_price = cards.get('data').get('meta').get('display_price').get('with_tax').get('formatted')
     message_id = update.effective_message.message_id
     chat_id = update.effective_message.chat_id
@@ -143,12 +164,14 @@ def handle_cart(elastickpath_access_token, update: Update, context: CallbackCont
     return HANDLE_CART
 
 
-def remove_card_item(elastickpath_access_token, update: Update, context: CallbackContext):
+@update_token
+def remove_card_item(elastickpath_access_token, client_id_secret, update: Update, context: CallbackContext):
     chat_id = update.effective_message.chat_id
     query = update.callback_query
     product_id = query.data
-    remove_cart_item(card_id=chat_id, product_id=product_id, access_token=elastickpath_access_token)
-    handle_cart(elastickpath_access_token, update, context)
+    access_token = elastickpath_access_token.get('access_token')
+    remove_cart_item(card_id=chat_id, product_id=product_id, access_token=access_token)
+    handle_cart(access_token, update, context)
     return HANDLE_CART
 
 
@@ -177,9 +200,11 @@ def handle_pay_request_phone(redis_db, update: Update, context: CallbackContext)
     return CLOSE_ORDER
 
 
+@update_token
 def close_order(
     redis_db,
     elastickpath_access_token,
+    client_id_secret,
     update: Update,
     context: CallbackContext
 ):
@@ -188,11 +213,12 @@ def close_order(
     email = redis_db.get(chat_id_redis_email).decode('utf-8')
     password = '12345'
     phone = update.message.text
+    access_token = elastickpath_access_token.get('access_token')
     create_customer(
         phone,
         email,
         password,
-        elastickpath_access_token)
+        access_token)
     message = f'Ваш email:{email}\nВаш телефон: {phone}'
     keyboard = [
         [
@@ -233,13 +259,13 @@ def main():
     redis_pass = os.getenv('REDDIS_PASS')
     el_path_client_id = os.getenv('ELASTICPATH_CLIENT_ID')
     el_path_client_secret = os.getenv('ELASTICPATH_CLIENT_SECRET')
-    elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret).get('access_token')
+    elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret)
+    client_id_secret = (el_path_client_id, el_path_client_secret)
     redis_base = redis.Redis(
         host=redis_host,
         port=redis_port,
         password=redis_pass
         )
-    token_excpiration_time = datetime.now() + timedelta(seconds=3600)
     persistence = FishShopPersistence(redis_base)
     logging_token = os.getenv('TG_TOKEN_LOGGING')
     logging_bot = Bot(token=logging_token)
@@ -252,18 +278,15 @@ def main():
     """Start the bot."""
     updater = Updater(token, persistence=persistence)
     dispatcher = updater.dispatcher
-    partial_start = partial(start, elastickpath_access_token)
-    partial_handle_menu = partial(handle_menu, elastickpath_access_token)
-    partial_handle_describtion = partial(handle_description, elastickpath_access_token)
-    partial_handle_cart = partial(handle_cart, elastickpath_access_token)
-    partial_handle_product_button = partial(handle_product_button, elastickpath_access_token)
-    partial_remove_card_item = partial(remove_card_item, elastickpath_access_token)
+    partial_start = partial(start, elastickpath_access_token, client_id_secret)
+    partial_handle_menu = partial(handle_menu, elastickpath_access_token, client_id_secret)
+    partial_handle_describtion = partial(handle_description, elastickpath_access_token, client_id_secret)
+    partial_handle_cart = partial(handle_cart, elastickpath_access_token, client_id_secret)
+    partial_handle_product_button = partial(handle_product_button, elastickpath_access_token, client_id_secret)
+    partial_remove_card_item = partial(remove_card_item, elastickpath_access_token, client_id_secret)
     partial_handle_pay_request = partial(handle_pay_request, redis_base)
     partial_handle_pay_request_phone = partial(handle_pay_request_phone, redis_base)
-    partial_close_order = partial(close_order, redis_base, elastickpath_access_token)
-    if token_excpiration_time > datetime.now():
-        elastickpath_access_token = get_access_token(el_path_client_id, el_path_client_secret).get('access_token')
-        token_excpiration_time = datetime.now() + timedelta(seconds=3600)
+    partial_close_order = partial(close_order, redis_base, elastickpath_access_token, client_id_secret)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", partial_start)],
         states={
